@@ -603,10 +603,12 @@ Write-Host
 ####################################################
 
 # Display Name of the Application to add an assignment to
-$ApplicationName = "IntuneApplication"
+#$ApplicationName = "Admin By Request Workstation"
 
-$Application = Get-IntuneApplication | ? { $_.displayName -eq "$ApplicationName" }
-
+#$Application = Get-IntuneApplication | Where-Object { ($_.displayName -eq "$ApplicationName") -and (($_.'@odata.type'-like "*MSI") -or ($_.'@odata.type'-like "*Win32*") )}
+#Write-Output $Application
+$Applications = Get-IntuneApplication | Where-Object { ($_.'@odata.type'-like "*MSI") -or ($_.'@odata.type'-like "*Win32*") }
+foreach($Application in $Applications){
     if(@($Application).count -eq 1){
 
         $Application
@@ -621,3 +623,4 @@ $Application = Get-IntuneApplication | ? { $_.displayName -eq "$ApplicationName"
         Write-Host
 
     }
+}
