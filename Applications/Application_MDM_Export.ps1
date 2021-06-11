@@ -399,8 +399,8 @@ $ExportPath = Read-Host -Prompt "Please specify a path to export application dat
 
 ####################################################
 
-$MDMApps = Get-IntuneApplication
-
+#$MDMApps = Get-IntuneApplication
+$MDMApps = Get-IntuneApplication | Where-Object { ($_.'@odata.type'-like "*MSI") -or ($_.'@odata.type'-like "*Win32*") }
 if($MDMApps){
 
     foreach($App in $MDMApps){
