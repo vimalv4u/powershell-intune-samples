@@ -600,13 +600,14 @@ $TargetGroupId = (get-AADGroup -GroupName "$AADGroup").id
 
 ####################################################
 
-$PolicyName = "Device Configuration Policy Name"
-
-$DCP = Get-DeviceConfigurationPolicy -name "$PolicyName"
+#$PolicyName = "Device Configuration Policy Name"
+$PolicyNames = Import-Csv "C:\Users\Admin\Downloads\Ventia_Apps\Config Profile\Intune_Device_Configuration_Profiles.csv"
+foreach($PolicyName in $PolicyNames){
+$DCP = Get-DeviceConfigurationPolicy -name "$PolicyName.Profilename"
 
 if($DCP){
 
-    $Assignment = Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $DCP.id -TargetGroupId $TargetGroupId -AssignmentType Included
+    #$Assignment = Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $DCP.id -TargetGroupId $TargetGroupId -AssignmentType Included
     Write-Host "Assigned '$AADGroup' to $($DCP.displayName)/$($DCP.id)" -ForegroundColor Green
     Write-Host
 
@@ -617,4 +618,5 @@ else {
     Write-Host "Can't find Device Configuration Policy with name '$PolicyName'..." -ForegroundColor Red
     Write-Host 
 
+}
 }
