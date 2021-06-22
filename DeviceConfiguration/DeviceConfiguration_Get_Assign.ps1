@@ -172,23 +172,40 @@ param
 
 $graphApiVersion = "beta"
 $DCP_resource = "deviceManagement/deviceConfigurations"
-
+$Check=$null
     try {
 
         if($Name){
 
         $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)?`$filter=displayName eq '$name'"
-        (Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).value
+        $Check=(Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).value
+          
+            IF($Check){}
+            Else{
+                $DCP_resource = "deviceManagement/groupPolicyConfigurations"
+                $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)?`$filter=displayName eq '$name'"
+                $Check=(Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).value
 
+                IF($Check){}
+                Else{
+                    $DCP_resource = "deviceManagement/configurationPolicies"
+                    $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)?`$filter=Name eq '$name'"
+                    $Check=(Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).value
+                }
+            }
         }
 
         else {
 
         $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)"
-        (Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).Value
-
+        $Check=(Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).Value
+            
+            IF(!($check)){
+                
+            }
         }
-
+        #Write-host $Check 
+        Return $Check, $DCP_resource
     }
 
     catch {
@@ -228,16 +245,22 @@ NAME: Get-DeviceConfigurationPolicyAssignment
 
 param
 (
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ResourceType,
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Assignments,
     [Parameter(Mandatory=$true,HelpMessage="Enter id (guid) for the Device Configuration Policy you want to check assignment")]
     $id
 )
 
 $graphApiVersion = "Beta"
-$DCP_resource = "deviceManagement/deviceConfigurations"
+$DCP_resource = $ResourceType
 
     try {
 
-    $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)/$id/groupAssignments"
+    $uri = "https://graph.microsoft.com/$graphApiVersion/$($DCP_resource)/$id/$Assignments"
     (Invoke-RestMethod -Uri $uri -Headers $authToken -Method Get).Value
 
     }
@@ -288,13 +311,25 @@ param
     $TargetGroupId,
 
     [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ResourceType,
+
+    [parameter(Mandatory=$true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Assignments,
+
+    [parameter(Mandatory=$true)]
     [ValidateSet("Included","Excluded")]
     [ValidateNotNullOrEmpty()]
     [string]$AssignmentType
 )
 
+$Assignmentc=$null
 $graphApiVersion = "Beta"
-$Resource = "deviceManagement/deviceConfigurations/$ConfigurationPolicyId/assign"
+IF($Assignments -eq "deviceManagement/deviceConfigurations"){$Assignmentc = "assign"}
+ElseIF($Assignments -eq "deviceManagement/groupPolicyConfigurations"){$Assignmentc = "assignments"}
+Else{$Assignmentc = "assignments"}
+$Resource = "$ResourceType/$ConfigurationPolicyId/$Assignmentc"
     
     try {
 
@@ -313,8 +348,8 @@ $Resource = "deviceManagement/deviceConfigurations/$ConfigurationPolicyId/assign
         }
 
         # Checking if there are Assignments already configured in the Policy
-        $DCPA = Get-DeviceConfigurationPolicyAssignment -id $ConfigurationPolicyId
-
+        $DCPA = Get-DeviceConfigurationPolicyAssignment -id $ConfigurationPolicyId -ResourceType $ResourceType -Assignments $Assignmentc
+        write-host $DCPA |FL
         $TargetGroups = @()
 
         if(@($DCPA).count -ge 1){
@@ -601,22 +636,34 @@ $TargetGroupId = (get-AADGroup -GroupName "$AADGroup").id
 ####################################################
 
 #$PolicyName = "Device Configuration Policy Name"
-$PolicyNames = Import-Csv "C:\Users\Admin\Downloads\Ventia_Apps\Config Profile\Intune_Device_Configuration_Profiles.csv"
+$PolicyNames = Import-Csv "C:\OneDirve\OneDrive - V4LUHOME\DSK-LAB-PC02\Downloads\Intune_Device_Configuration_Profiles.csv"
 foreach($PolicyName in $PolicyNames){
-$DCP = Get-DeviceConfigurationPolicy -name "$PolicyName.Profilename"
+$ProfileName=$PolicyName.Profilename
 
+#$DCP= Get-DeviceConfigurationPolicy -name $ProfileName
+$DCP,$DCP_resource= Get-DeviceConfigurationPolicy -name "WKS-AT-AD Audit Plus Policy"
+Write-Host $DCP_resource
+$Assignment = $null
+IF($DCP_resource -eq "deviceManagement/deviceConfigurations"){$Assignment = "groupAssignments"}
+ElseIF($DCP_resource -eq "deviceManagement/groupPolicyConfigurations"){$Assignment = "Assignments"}
+Else{$Assignment = "Assignments"}
 if($DCP){
 
-    #$Assignment = Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $DCP.id -TargetGroupId $TargetGroupId -AssignmentType Included
+    $Assignment = Add-DeviceConfigurationPolicyAssignment -ConfigurationPolicyId $DCP.id -TargetGroupId $TargetGroupId -AssignmentType Included -ResourceType $DCP_resource -Assignments $Assignment
+    IF($DCP.displayName){
     Write-Host "Assigned '$AADGroup' to $($DCP.displayName)/$($DCP.id)" -ForegroundColor Green
+    }
+    Else{
+    Write-Host "Assigned '$AADGroup' to $($DCP.Name)/$($DCP.id)" -ForegroundColor Green
+    }
     Write-Host
 
 }
-
 else {
 
-    Write-Host "Can't find Device Configuration Policy with name '$PolicyName'..." -ForegroundColor Red
+    Write-Host "Can't find Device Configuration Policy with name '$ProfileName'..." -ForegroundColor Red
     Write-Host 
 
 }
+break
 }
